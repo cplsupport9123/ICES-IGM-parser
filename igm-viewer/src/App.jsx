@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 
 /**
- * IGM Viewer + ICES Generator
+ * IGM Viewer + ICES Generator (with full VESINFO parser)
  * - Parses HREC / vesinfo / cargo / contain / TREC
  * - Extracts CFS from cargo (LC token)
  * - Filters, select-by-line, select-all-by-CFS
@@ -10,12 +10,13 @@ import React, { useState } from "react";
  * - Preview before download
  * - Fixed parser: handles container lines starting with F or V, robust CFS extraction
  * - Added Container No search
+ * - Full vesinfo (Part A) parser according to ICES SACHI01 (26 fields)
  */
 
 export default function App() {
   const [input, setInput] = useState("");
   const [fileName, setFileName] = useState("");
-  const [data, setData] = useState(null); // { headerLines:[], vesinfo:[], cargos:{}, containers:[], trec: "" }
+  const [data, setData] = useState(null); // { headerLines, vesinfoLines, vesinfoObj, cargos, containers, trecLine }
   const [filters, setFilters] = useState({ line: "", cfs: "" });
   const [selectedLines, setSelectedLines] = useState([]);
   const [previewText, setPreviewText] = useState("");
@@ -32,6 +33,61 @@ export default function App() {
     return line.split(/\|/);
   };
 
+  // Parse VESINFO F-record into structured object (ICES SACHI01 Part A fields 1..26)
+  const parseVesinfoFromLines = (vesinfoLines) => {
+    if (!vesinfoLines || vesinfoLines.length === 0) return null;
+    // find first line that starts with F (record)
+    const fLine = vesinfoLines.find((l) => l && l.trim().startsWith("F"));
+    if (!fLine) return null;
+    const parts = splitRecord(fLine).map((p) => (p === undefined ? "" : p.trim()));
+
+    // Map fields according to spec (1..26). Indexing: parts[0] => 'F', parts[1] => field2, ...
+    // We'll take care mapping with appropriate indexes derived from examples:
+    const get = (idx) => parts[idx] || "";
+
+    // The official mapping: Field 1 = Message Type -> parts[0] ('F'), Field 2 -> parts[1], Field 3 -> parts[2], Field 4 -> parts[3], ...
+    // We'll create an object with labeled fields.
+    const ves = {
+      rawLine: fLine,
+      // Field 1..26
+      field1_messageType: get(0), // usually 'F' or 'A'
+      field2_customHouseCode: get(1),
+      field3_igmNo: get(2),
+      field4_igmDate_ddmmyyyy: get(3),
+      field5_imoCode: get(4),
+      field6_callSign: get(5),
+      field7_voyageNo: get(6),
+      field8_shippingLineCode: get(7),
+      field9_shippingAgentCode: get(8),
+      field10_masterName: get(9),
+      field11_portOfArrival: get(10),
+      field12_lastPortCalled: get(11),
+      field13_portPrior12: get(12),
+      field14_portPrior13: get(13),
+      field15_vesselType: get(14),
+      field16_totalNoOfLines: get(15),
+      field17_briefCargoDescription: get(16),
+      field18_expectedDateTimeArrival: get(17),
+      field19_lighthouseDues: get(18),
+      field20_sameBottomCargo: get(19),
+      field21_shipStoresDeclaration: get(20),
+      field22_crewListDeclaration: get(21),
+      field23_passengerList: get(22),
+      field24_crewEffectDeclaration: get(23),
+      field25_maritimeDeclaration: get(24),
+      field26_terminalOperatorCode: get(25),
+    };
+
+    // Additional handy parsed formats
+    // try convert igm date to normalized string if present (DDMMYYYY)
+    if (ves.field4_igmDate_ddmmyyyy && ves.field4_igmDate_ddmmyyyy.length === 8) {
+      const d = ves.field4_igmDate_ddmmyyyy;
+      ves.igmDateISO = `${d.slice(4, 8)}-${d.slice(2, 4)}-${d.slice(0, 2)}`; // YYYY-MM-DD
+    }
+
+    return ves;
+  };
+
   // Parse the full IGM including headers, vesinfo, cargo and container sections and TREC
   const parseIGM = (text) => {
     const rawLines = text.split(/\r?\n/);
@@ -44,7 +100,7 @@ export default function App() {
     let inCargo = false;
     let inContain = false;
 
-    const cargos = {}; 
+    const cargos = {};
     const containers = [];
     let trecLine = "";
 
@@ -105,6 +161,8 @@ export default function App() {
       // Cargo F-records
       if (inCargo && t.startsWith("F")) {
         const parts = splitRecord(line).map((p) => (p === undefined ? "" : p.trim()));
+        // crew mapping: in cargo records, fields vary; based on examples earlier:
+        // parts[7] => line number (subline), parts[9] => BL, consignee often at 14/15
         const lineNo = parts[7] || "";
         const bl = parts[9] || "";
         const consignee = parts[14] || parts[15] || "";
@@ -156,7 +214,10 @@ export default function App() {
       }
     }
 
-    return { headerLines, vesinfoLines, cargos, containers, trecLine };
+    // parse vesinfo into structured object
+    const vesinfoObj = parseVesinfoFromLines(vesinfoLines);
+
+    return { headerLines, vesinfoLines, vesinfoObj, cargos, containers, trecLine };
   };
 
   // File upload
@@ -244,7 +305,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "NEW_IGM.txt";
+    a.download = "NEW_IGM.igm";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -270,7 +331,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `NEW_IGM_${cfs}.txt`;
+    a.download = `NEW_IGM_${cfs}.igm`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -322,12 +383,12 @@ export default function App() {
   // UI
   return (
     <div className="p-6 font-sans space-y-6">
-      <h1 className="text-2xl font-bold">IGM Viewer + ICES Generator (Option A)</h1>
+      <h1 className="text-2xl font-bold">IGM Viewer +  Generator </h1>
 
       {/* Upload and Paste */}
       <div>
-        <label className="block mb-1 font-medium">Upload IGM (.txt)</label>
-        <input type="file" accept=".txt" onChange={handleFile} className="mb-2" />
+        <label className="block mb-1 font-medium">Upload IGM (.igm)</label>
+        <input type="file" accept=".igm" onChange={handleFile} className="mb-2" />
         {fileName && <div className="text-sm italic mb-2">Loaded: {fileName}</div>}
 
         <div className="mt-2">
@@ -365,6 +426,94 @@ export default function App() {
 
       {data && (
         <>
+          {/* Show parsed Vesinfo (full fields) */}
+          {data.vesinfoObj && (
+  <div className="p-6 border rounded-xl bg-gradient-to-br from-white to-gray-50 shadow-md mt-4">
+    <h2 className="text-xl font-bold mb-4 text-gray-800 border-l-4 border-blue-600 pl-3">
+      VESSEL INFORMATION (Part A)
+    </h2>
+
+    {/* VESINFO GRID */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+
+      {/* LEFT COLUMN */}
+      <div>
+        <table className="w-full border-collapse overflow-hidden rounded-lg shadow-sm">
+          <tbody>
+            {[
+              ["Message Type", data.vesinfoObj.field1_messageType],
+              ["Custom House Code", data.vesinfoObj.field2_customHouseCode],
+              ["IGM No", data.vesinfoObj.field3_igmNo],
+              ["IGM Date (DDMMYYYY)", data.vesinfoObj.field4_igmDate_ddmmyyyy],
+              ["IMO Code", data.vesinfoObj.field5_imoCode],
+              ["Call Sign", data.vesinfoObj.field6_callSign],
+              ["Voyage No", data.vesinfoObj.field7_voyageNo],
+              ["Shipping Line Code", data.vesinfoObj.field8_shippingLineCode],
+              ["Shipping Agent Code", data.vesinfoObj.field9_shippingAgentCode],
+              ["Master Name", data.vesinfoObj.field10_masterName],
+              ["Port of Arrival", data.vesinfoObj.field11_portOfArrival]
+            ].map(([label, value], i) => (
+              <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                <td className="border p-2 font-semibold text-gray-700 w-1/2 bg-gray-100">{label}</td>
+                <td className="border p-2">{value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* RIGHT COLUMN */}
+      <div>
+        <table className="w-full border-collapse overflow-hidden rounded-lg shadow-sm">
+          <tbody>
+            {[
+              ["Last Port Called", data.vesinfoObj.field12_lastPortCalled],
+              ["Port Prior (12)", data.vesinfoObj.field13_portPrior12],
+              ["Port Prior (13)", data.vesinfoObj.field14_portPrior13],
+              ["Vessel Type", data.vesinfoObj.field15_vesselType],
+              ["Total No. of Lines", data.vesinfoObj.field16_totalNoOfLines],
+              ["Brief Cargo Description", data.vesinfoObj.field17_briefCargoDescription],
+              ["ETA / ATA", data.vesinfoObj.field18_expectedDateTimeArrival],
+              ["Lighthouse Dues", data.vesinfoObj.field19_lighthouseDues],
+              ["Same Bottom Cargo", data.vesinfoObj.field20_sameBottomCargo],
+              ["Terminal Operator Code", data.vesinfoObj.field26_terminalOperatorCode]
+            ].map(([label, value], i) => (
+              <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                <td className="border p-2 font-semibold text-gray-700 w-1/2 bg-gray-100">{label}</td>
+                <td className="border p-2">{value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    {/* FLAGS */}
+    <h3 className="mt-5 mb-2 text-sm font-semibold text-gray-700">Declarations</h3>
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
+
+      {[
+        ["Ship Stores", data.vesinfoObj.field21_shipStoresDeclaration],
+        ["Crew List", data.vesinfoObj.field22_crewListDeclaration],
+        ["Passenger List", data.vesinfoObj.field23_passengerList],
+        ["Crew Effects", data.vesinfoObj.field24_crewEffectDeclaration],
+        ["Maritime Decl.", data.vesinfoObj.field25_maritimeDeclaration]
+      ].map(([label, value], i) => (
+        <div
+          key={i}
+          className="p-2 border rounded text-center bg-white shadow-sm hover:bg-blue-50 transition"
+        >
+          <span className="font-medium text-gray-700">{label}: </span>
+          <span className="font-bold text-blue-700">{value}</span>
+        </div>
+      ))}
+
+    </div>
+  </div>
+)}
+
+
           {/* Filters area */}
           <div className="p-4 border rounded bg-gray-50">
             <h2 className="text-lg font-semibold mb-2">Filters & CFS Tools</h2>
@@ -497,7 +646,12 @@ export default function App() {
                     <td className="border p-1">{c.containerNo}</td>
                     <td className="border p-1">{c.seal}</td>
                     <td className="border p-1">{c.weight}</td>
-                    <td className="border p-1">{c.cfs}</td>
+                    <td className="border p-1 font-semibold">
+                      {/* coloured badge */}
+                      <span className="inline-block px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800 border border-blue-200">
+                        {c.cfs || "—"}
+                      </span>
+                    </td>
                     <td className="border p-1">{c.consignee}</td>
                   </tr>
                 ))}
@@ -510,12 +664,29 @@ export default function App() {
             <div className="p-4 border rounded bg-yellow-50">
               <h2 className="text-lg font-semibold mb-2">Preview</h2>
               <pre className="overflow-x-auto max-h-96">{previewText}</pre>
-              <button
-                onClick={() => setShowPreview(false)}
-                className="px-4 py-2 mt-2 bg-red-600 text-white rounded"
-              >
-                Close Preview
-              </button>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => {
+                    const blob = new Blob([previewText], { type: "text/plain" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "PREVIEW_IGM.txt";
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="px-4 py-2 bg-green-600 text-white rounded"
+                >
+                  Download Preview
+                </button>
+
+                <button
+                  onClick={() => setShowPreview(false)}
+                  className="px-4 py-2 mt-2 bg-red-600 text-white rounded"
+                >
+                  Close Preview
+                </button>
+              </div>
             </div>
           )}
         </>
