@@ -1,5 +1,33 @@
 // src/App.jsx
 import React, { useState, useCallback, useMemo } from "react";
+//const [helpOpen, setHelpOpen] = useState(false);
+
+
+
+
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBSRAPGbXDR1RxVSCxjLYsniaNkSvRdhHo",
+  authDomain: "igm-viewer-generator.firebaseapp.com",
+  projectId: "igm-viewer-generator",
+  storageBucket: "igm-viewer-generator.firebasestorage.app",
+  messagingSenderId: "525005355310",
+  appId: "1:525005355310:web:839a85510ac37a38ada2bf",
+  measurementId: "G-4P574MDCFG"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
+
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import Container from "@mui/material/Container";
@@ -29,19 +57,40 @@ import Checkbox from "@mui/material/Checkbox";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
+
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import DownloadIcon from "@mui/icons-material/Download";
+import DownloadIcon from "@mui/icons-material/Download";       // kept only once
 import PreviewIcon from "@mui/icons-material/Preview";
-import CloseIcon from "@mui/icons-material/Close";
+import CloseIcon from "@mui/icons-material/Close";             // kept only once
 import SailingIcon from "@mui/icons-material/Sailing";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
-import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityIcon from "@mui/icons-material/Visibility";   // kept only once
 import SaveAltIcon from "@mui/icons-material/SaveAlt";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
+
 import { useTheme } from "@mui/material/styles";
+
+// Standard MUI Icons
+import DirectionsBoatIcon from "@mui/icons-material/DirectionsBoat"; // Ship
+import FilterAltIcon from "@mui/icons-material/FilterAlt";           // Filter
+import FolderZipIcon from "@mui/icons-material/FolderZip";           // Zip File
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";       // Upload
+import LayersIcon from "@mui/icons-material/Layers";                 // Layers
+import DescriptionIcon from "@mui/icons-material/Description";       // FileText
+
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import { alpha } from "@mui/material/styles";
+
 
 
 // ------------------ Constants & Utilities ------------------
@@ -426,6 +475,9 @@ export default function App() {
   const [selectedLines, setSelectedLines] = useState([]);
   const [previewText, setPreviewText] = useState("");
   const [showPreview, setShowPreview] = useState(false);
+    const [helpOpen, setHelpOpen] = useState(false);
+
+
 
   const downloadFile = useDownloader();
 
@@ -643,8 +695,260 @@ export default function App() {
   // ------------------ END NEW ------------------
 
 
+
+
+//steps for how to use the app
+  
+const IGMHelpModal = ({ open, onClose }) => {
+  const theme = useTheme();
+
+  const features = [
+    {
+      icon: <DirectionsBoatIcon sx={{ fontSize: 28 }} />,
+      title: "Deep IGM Parsing",
+      desc: "Parses complex ICES 1.5 formats including VESINFO, Cargo (TREC/TSHC), and Container sections, handling mixed delimiters and multi-line data.",
+      color: "#3b82f6" 
+    },
+    {
+      icon: <FilterAltIcon sx={{ fontSize: 28 }} />,
+      title: "Smart Filtering",
+      desc: "Filter manifests instantly by Line Number, Auto-detected CFS, Container Number, or BL details to find exactly what you need.",
+      color: "#10b981" 
+    },
+    {
+      icon: <FolderZipIcon sx={{ fontSize: 28 }} />,
+      title: "CFS-wise Splitting",
+      desc: "Automatically groups cargo by CFS. Download individual CFS files, or grab a complete ZIP archive of all separated IGM files in one click.",
+      color: "#8b5cf6" 
+    },
+    {
+      icon: <VisibilityIcon sx={{ fontSize: 28 }} />,
+      title: "Live Preview",
+      desc: "Verify data before downloading. View a pretty-printed preview of the generated IGM file content, including cargo and container counts.",
+      color: "#f59e0b" 
+    }
+  ];
+
+  const steps = [
+    { 
+      primary: "Upload IGM File", 
+      secondary: "Select any .igm, .txt, or .csv file. The app immediately parses Vessel, Cargo, and Container details.",
+      icon: <CloudUploadIcon fontSize="small" />
+    },
+    { 
+      primary: "Analyze & Filter", 
+      secondary: "Use the dashboard to filter by Line Number or specific CFS. The tables update in real-time.",
+      icon: <FilterAltIcon fontSize="small" />
+    },
+    { 
+      primary: "Review Data", 
+      secondary: "Check the comprehensive tables showing Cargo descriptions, Marks & Numbers, and linked Containers.",
+      icon: <LayersIcon fontSize="small" />
+    },
+    { 
+      primary: "Generate & Download", 
+      secondary: "Download the specific 'Filtered IGM' for a single CFS, or export a ZIP containing separated files for all CFSs.",
+      icon: <DownloadIcon fontSize="small" />
+    }
+  ];
+
+  return (
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="lg" 
+      fullWidth
+      scroll="paper"
+      aria-labelledby="igm-help-dialog-title"
+    >
+      {/* Header with Gradient */}
+      <DialogTitle 
+        sx={{ 
+          p: 0, 
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        <Box sx={{
+          p: 4,
+          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+          color: 'white',
+        }}>
+          {/* Close Button Absolute Positioned */}
+          <IconButton
+            aria-label="close"
+            onClick={onClose}
+            sx={{
+              position: 'absolute',
+              right: 16,
+              top: 16,
+              color: 'white',
+              bgcolor: 'rgba(255,255,255,0.1)',
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+
+          {/* Decorative Circle */}
+          <Box sx={{
+            position: 'absolute',
+            top: -50,
+            right: -30,
+            width: 150,
+            height: 150,
+            borderRadius: '50%',
+            bgcolor: 'white',
+            opacity: 0.1,
+            pointerEvents: 'none'
+          }} />
+
+          <Typography variant="overline" sx={{ fontWeight: 'bold', letterSpacing: 2, opacity: 0.9 }}>
+            IGM Tool Manual
+          </Typography>
+          <Typography variant="h4" component="h2" sx={{ fontWeight: 800, mt: 1 }}>
+            IGM Viewer & Generator
+          </Typography>
+          <Typography variant="subtitle1" sx={{ maxWidth: 700, opacity: 0.9, mt: 1, lineHeight: 1.5 }}>
+            A utility to parse, visualize, and split Import General Manifests (IGM) by CFS.
+          </Typography>
+        </Box>
+      </DialogTitle>
+
+      <DialogContent dividers sx={{ bgcolor: 'background.default', p: { xs: 2, md: 4 } }}>
+        <Grid container spacing={4}>
+          {/* Left Column: Features */}
+          <Grid item xs={12} md={8}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+              <LayersIcon color="action" /> Core Capabilities
+            </Typography>
+            
+            <Grid container spacing={3}>
+              {features.map((feat, index) => (
+                <Grid item xs={12} sm={6} key={index}>
+                  <Card 
+                    variant="outlined"
+                    sx={{ 
+                      height: '100%', 
+                      borderRadius: 3,
+                      transition: 'transform 0.2s, box-shadow 0.2s',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: 3,
+                        borderColor: feat.color
+                      }
+                    }}
+                  >
+                    <CardContent sx={{ p: 2.5 }}>
+                      <Box sx={{ 
+                        display: 'inline-flex', 
+                        p: 1.5, 
+                        borderRadius: 2, 
+                        bgcolor: alpha(feat.color, 0.1), 
+                        color: feat.color,
+                        mb: 2
+                      }}>
+                        {feat.icon}
+                      </Box>
+                      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 700 }}>
+                        {feat.title}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+                        {feat.desc}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+
+            {/* Supported Formats Section */}
+            <Box sx={{ mt: 5 }}>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 700 }}>
+                Supported Formats
+              </Typography>
+              <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+                <Grid container spacing={2}>
+                  {[
+                    { title: "Standard IGM", sub: ".igm, .txt (ICES 1.5)" },
+                    { title: "Flat Files", sub: ".amd, .csv" },
+                    { title: "Legacy", sub: "Mixed delimiters" }
+                  ].map((fmt, i) => (
+                    <Grid item xs={12} sm={4} key={i}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <DescriptionIcon color="action" />
+                        <Box>
+                          <Typography variant="subtitle2" fontWeight="bold">{fmt.title}</Typography>
+                          <Typography variant="caption" color="text.secondary">{fmt.sub}</Typography>
+                        </Box>
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Paper>
+            </Box>
+          </Grid>
+
+          {/* Right Column: Steps */}
+          <Grid item xs={12} md={4}>
+            <Paper 
+              variant="outlined"
+              sx={{ 
+                p: 3, 
+                borderRadius: 3,
+                height: 'fit-content'
+              }}
+            >
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, mb: 2 }}>
+                Workflow
+              </Typography>
+              <List disablePadding>
+                {steps.map((step, index) => (
+                  <React.Fragment key={index}>
+                    <ListItem alignItems="flex-start" sx={{ px: 0 }}>
+                      <ListItemIcon sx={{ minWidth: 40, mt: 0.5 }}>
+                        <Box sx={{ 
+                          width: 28, 
+                          height: 28, 
+                          borderRadius: '50%', 
+                          bgcolor: 'primary.light', 
+                          color: 'primary.contrastText',
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          fontSize: '0.875rem',
+                          fontWeight: 'bold'
+                        }}>
+                          {index + 1}
+                        </Box>
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary={<Typography variant="subtitle2" fontWeight="bold">{step.primary}</Typography>}
+                        secondary={step.secondary}
+                        primaryTypographyProps={{ gutterBottom: true }}
+                      />
+                    </ListItem>
+                    {index < steps.length - 1 && <Divider variant="inset" component="li" sx={{ ml: 5 }} />}
+                  </React.Fragment>
+                ))}
+              </List>
+            </Paper>
+          </Grid>
+        </Grid>
+      </DialogContent>
+
+      <DialogActions sx={{ p: 2, bgcolor: 'grey.50' }}>
+        <Button onClick={onClose} variant="contained" disableElevation>
+          Got it
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+
   // ---------------- Footer Component ----------------
-const Footer = () => {
+const Footer = ({ setHelpOpen }) => {
   const theme = useTheme();
 
   return (
@@ -665,7 +969,7 @@ const Footer = () => {
     <Typography variant="body2" color="#e20849ff">
       <strong>IGM Analyzer & Generator</strong>
       <br />
-      Built for Century Ports Operations(E-3015)
+      Built for  Ports Operations(E-3015)
     </Typography>
   </Grid>
 
@@ -674,23 +978,26 @@ const Footer = () => {
       
       {/* HELP LINK */}
       <Typography
-        variant="body2"
-        color="text.secondary"
-        component="a"
-        href="https://github.com/cplsupport9123/ICES-IGM-parser/blob/main/README.md"
-        target="_blank"
-        rel="noopener noreferrer"
-        sx={{ cursor: "pointer", textDecoration: "none" }}
-      >
-        Help
-      </Typography>
+  variant="body2"
+  color="#bcff04ff"
+  component="a"
+  href="#"
+  onClick={(e) => {
+    e.preventDefault();   // prevent navigation
+    setHelpOpen(true);    // open modal
+  }}
+  sx={{ cursor: "pointer", textDecoration: "none" }}
+>
+  Insruction Manual-Help
+</Typography>
+
 
       {/* CONTACT LINK */}
       <Typography
         variant="body2"
         color="text.secondary"
         component="a"
-        href="https://centuryports.com"
+        href="mailto:support@centuryports.com?subject=App%20issue%20:%20IGM%20viewer/Generator"
         target="_blank"
         rel="noopener noreferrer"
         sx={{ cursor: "pointer", textDecoration: "none" }}
@@ -705,7 +1012,7 @@ const Footer = () => {
 
         <Box mt={2} textAlign="center">
           <Typography variant="caption" color="#ED1C24">
-            © {new Date().getFullYear()} Century Ports. All Rights Reserved.
+            © {new Date().getFullYear()} E-3015. All Rights Reserved.
           </Typography>
         </Box>
       </Container>
@@ -717,12 +1024,14 @@ const Footer = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <IGMHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+
       <Container maxWidth="xl" sx={{ py: 3 }}>
         <Stack spacing={3}>
           {/* Header */}
           <Stack direction="row" justifyContent="space-between" alignItems="center">
             <Typography variant="h4" sx={{ fontWeight: "bold", color: "primary.main" }}>IGM Viewer - Generator -  ICES</Typography>
-            <IconButton onClick={toggleTheme} color="inherit">{mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}</IconButton>
+            <IconButton onClick={toggleTheme} color="inherit">{mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}Light/Dark</IconButton>
           </Stack>
 
           {/* Upload / Paste */}
@@ -978,7 +1287,10 @@ const Footer = () => {
             </>
           )}
 
-          <Footer />
+          
+
+          <Footer setHelpOpen={setHelpOpen} />
+          
 
           {/* Preview Modal */}
           <Modal open={showPreview} onClose={() => { setShowPreview(false); setPreviewText(""); }} aria-labelledby="preview-modal-title">

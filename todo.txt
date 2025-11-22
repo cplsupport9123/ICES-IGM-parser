@@ -1,0 +1,4 @@
+add features
+i> add a default header in igm , if headers is missing
+ii> add a fallback in igm parsing , is any segment is missing , then also parse the data that is available. donot stop parsing
+iii>
