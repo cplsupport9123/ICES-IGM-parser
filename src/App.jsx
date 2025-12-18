@@ -1,20 +1,7 @@
 // src/App.jsx - Modular IGM Viewer & Generator
 import React, { useState, useMemo } from "react";
 
-// Firebase initialization
-import { initializeApp } from "firebase/app";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBSRAPGbXDR1RxVSCxjLYsniaNkSvRdhHo",
-  authDomain: "igm-viewer-generator.firebaseapp.com",
-  projectId: "igm-viewer-generator",
-  storageBucket: "igm-viewer-generator.firebasestorage.app",
-  messagingSenderId: "525005355310",
-  appId: "1:525005355310:web:839a85510ac37a38ada2bf",
-  measurementId: "G-4P574MDCFG"
-};
-
-const _app = initializeApp(firebaseConfig); // Firebase initialized
 
 // Material-UI imports
 import { ThemeProvider, createTheme, useTheme, alpha } from "@mui/material/styles";
