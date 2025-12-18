@@ -1,4 +1,46 @@
 add features
-i> add a default header in igm , if headers is missing
-ii> add a fallback in igm parsing , is any segment is missing , then also parse the data that is available. donot stop parsing
-iii>
+i> add a default header in igm , if headers is missing -- add a default header   (
+
+
+
+HRECZZSSLDANIELZZINCCU1ICES1_5PSACHI0101A202511050429
+<manifest>
+<vesinfo>
+FINCCU11161726291020251043516YDWT3018ESAMUDERAAAGCS7372ACAPTAININCCU1SGSINC104GENERAL CARGO08112025 13:28NYYNYY
+<END-vesinfo>
+<cargo>
+
+< cargo  section with line no > parsed from uploaded IGM
+
+<END-cargo>
+<contain>
+
+
+< container   section with line no. > parsed from uploaded IGM
+
+<END-contain>
+<END-manifest>
+TREC01A                  -- this wil be the structure of generated igm , if the uploaded igm has only cargo and contain section. ask user to if he/she wants to add default manifest and vesinfo  , 
+, folow the above structure for generation i.e cargo / conatain section inside manifest and  vesinfo is above cargo section but  also lies  with in the manifest tag.  also it can be edited  before saving it. can it be done ? what u will do?
+
+
+ii> add a fallback in igm parsing only if cargo or container section is present 
+,?, then also parse the data with what tags are available. donot stop parsing. 
+show which tags/ data were missing -- in warnings.  upon generation . all  missing value to be replaced with default , given previously.
+if your  require default values of all headers .ask me.  therefore igm that will be generated will be according to ices format .
+please note this should not break already working and tested features and parsing logic that is present already .
+
+
+
+iii>generate IGM from a pdf file 
+
+iv> make a  excel report from the IGM
+
+v >   igm from JSON
+
+vi >  export to excel and json from IGM
+
+7>  total weight of the containers in the list.
+
+
+break the HREC/Vesinfo into structured fields instead of a single line,
